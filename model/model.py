@@ -26,10 +26,6 @@ class DigitPositions(DensityKernel):
     def density(self):
         return self._prior
 
-    @property
-    def name(self):
-        return "z_where__%d" % self._t
-
 class DigitFeatures(DensityKernel):
     def __init__(self, batch_shape=(), K=3, z_what_dim=10):
         self._prior = dist.Normal(torch.zeros(z_what_dim),
