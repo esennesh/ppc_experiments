@@ -39,10 +39,6 @@ class DigitFeatures(DensityKernel):
     def density(self):
         return self._prior
 
-    @property
-    def name(self):
-        return "z_what"
-
 class DigitsDecoder(DensityKernel):
     def __init__(self, what, where, decoder=None, frame_side=96, t=0):
         self._t = t
