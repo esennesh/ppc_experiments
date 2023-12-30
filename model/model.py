@@ -91,6 +91,9 @@ class BouncingMnistAsvi(BaseModel):
                  x_side=96, z_what_dim=10, z_where_dim=2):
         super().__init__()
         self._num_digits = num_digits
+        self._x_side = x_side
+        self._z_what_dim = z_what_dim
+        self._z_where_dim = z_where_dim
 
         self.encoders = pnn.PyroModule[nn.ModuleDict]({
             'mean_fields': pnn.PyroModule[nn.ModuleDict]({
@@ -115,21 +118,26 @@ class BouncingMnistAsvi(BaseModel):
             }),
         })
 
-        self.decoder = DigitsDecoder(digit_side, hidden_dim, x_side, z_what_dim)
-        self.digit_features = DigitFeatures(z_what_dim)
-        self.digit_positions = DigitPositions(z_where_dim)
+        self.decoder = nn.Sequential(
+            nn.Linear(z_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, digit_side ** 2), nn.Sigmoid()
+        )
 
     def forward(self, xs):
         return self.model(xs)
 
     def model(self, xs):
         B, T, _, _ = xs.shape
-        z_what = self.digit_features(K=self._num_digits, batch_shape=(B,))
+        p_zwhat = DigitFeatures((B,), self._num_digits, self._z_what_dim)
+        z_what = pyro.sample("z_what", p_zwhat)
         z_where = None
         for t, x in pyro.markov(enumerate(xs.unbind(1))):
-            z_where = self.digit_positions(z_where, t=t, K=self._num_digits,
-                                           batch_shape=(B,))
-            self.decoder(t, z_what, z_where, x)
+            p_zwhere = DigitPositions(z_where, t=t, K=self._num_digits,
+                                      batch_shape=(B,))
+            z_where = pyro.sample("z_where__%d" % t, p_zwhere)
+            p_x = DigitsDecoder(z_what, z_where, self.decoder, self._x_side, t)
+            pyro.sample("X__%d" % t, p_x, obs=x)
 
     def guide(self, xs):
         B, T, _, _ = xs.shape
@@ -137,15 +145,17 @@ class BouncingMnistAsvi(BaseModel):
         data = xs.reshape(xs.shape[0], math.prod(xs.shape[1:]))
         with asvi(amortizer=self.encoders, data=data, event_shape=xs.shape[1:],
                   namer=lambda n: n.split('__')[0]):
-            self.digit_features(self._num_digits, batch_shape=(B,))
+            p_zwhat = DigitFeatures((B,), self._num_digits, self._z_what_dim)
+            z_what = pyro.sample("z_what", p_zwhat)
 
         z_where = None
         for t, x in pyro.markov(enumerate(xs.unbind(1))):
             x = x.reshape(x.shape[0], math.prod(x.shape[1:]))
             with asvi(amortizer=self.encoders, data=x, event_shape=x.shape[1:],
                       namer=lambda n: n.split('__')[0]):
-                z_where = self.digit_positions(z_where, t=t, K=self._num_digits,
-                                               batch_shape=(B,))
+                p_zwhere = DigitPositions(z_where, t=t, K=self._num_digits,
+                                          batch_shape=(B,))
+                z_where = pyro.sample("z_where__%d" % t, p_zwhere)
 
 class MnistPpc(BaseModel):
     def __init__(self, digit_side=28, hidden_dim=400, temperature=1e-3,
