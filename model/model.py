@@ -5,23 +5,30 @@ import pyro.nn as pnn
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from base import BaseModel
+from base import BaseModel, DensityKernel
 from .inference import asvi, mlp_amortizer, PpcGraph
 
-class DigitPositions(BaseModel):
-    def __init__(self, z_where_dim=2):
-        super().__init__()
-        self.register_buffer('loc', torch.zeros(z_where_dim))
-        self.register_buffer('scale', torch.ones(z_where_dim) * 0.2)
+class DigitPositions(DensityKernel):
+    def __init__(self, z_where, t=0, K=3, batch_shape=()):
+        if isinstance(torch.Tensor, z_where):
+            loc = torch.zeros(z_where.shape[-1]).to(z_where.device)
+            scale = torch.ones(z_where.shape[-1]).to(z_where.device)
+        else:
+            loc, scale = torch.zeros(z_where), torch.ones(z_where) * 0.2
+        self._t = t
+        self._prior = dist.Normal(loc, scale).expand([*batch_shape, K,
+                                                      loc.shape])
+        self._prior = self._prior.to_event(2)
 
-    def forward(self, z_where, t=0, K=3, batch_shape=()):
-        scale = self.scale
-        if z_where is None:
-            scale = scale * 5
-        prior = dist.Normal(self.loc, scale).expand([
-            *batch_shape, K, *self.loc.shape
-        ])
-        return pyro.sample("z_where__%d" % t, prior.to_event(2))
+        super().__init__()
+
+    @property
+    def density(self):
+        return self._prior
+
+    @property
+    def name(self):
+        return "z_where__%d" % self._t
 
 class DigitFeatures(BaseModel):
     def __init__(self, z_what_dim=10):
