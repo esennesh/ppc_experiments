@@ -44,11 +44,6 @@ class DensityKernel(BaseModel, pyro.distributions.Distribution):
     def density(self):
         raise NotImplementedError
 
-    @property
-    @abstractmethod
-    def name(self):
-        raise NotImplementedError
-
     def log_prob(self, x, *args, **kwargs):
         return self.density.log_prob(x, *args, **kwargs)
 
