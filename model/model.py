@@ -47,24 +47,25 @@ class DigitFeatures(DensityKernel):
     def name(self):
         return "z_what"
 
-class DigitsDecoder(BaseModel):
-    def __init__(self, digit_side=28, hidden_dim=400, x_side=96, z_what_dim=10):
+class DigitsDecoder(DensityKernel):
+    def __init__(self, what, where, decoder=None, frame_side=96, t=0):
+        self._t = t
+        self._x_side = frame_side
+
+        digits = decoder(what)
+        frame = torch.clamp(self.blit(digits, where).sum(-3), 0., 1.)
+        self._likelihood = dist.ContinuousBernoulli(frame).to_event(2)
+
         super().__init__()
-        self._digit_side = digit_side
-        self._x_side = x_side
-        self.decoder = nn.Sequential(
-            nn.Linear(z_what_dim, hidden_dim // 2), nn.ReLU(),
-            nn.Linear(hidden_dim // 2, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, digit_side ** 2), nn.Sigmoid()
-        )
-        scale = torch.diagflat(torch.ones(2) * x_side / digit_side)
-        self.register_buffer('scale', scale)
-        self.translate = (x_side - digit_side) / digit_side
 
     def blit(self, digits, z_where):
         P, B, K, _ = z_where.shape
-        affine_p1 = self.scale.repeat(P, B, K, 1, 1)
-        affine_p2 = z_where.unsqueeze(-1) * self.translate
+        digit_side = digits.shape[-1]
+        scale = torch.diagflat(torch.ones(2) * self._x_side / digit_side)
+        translate = (self._x_side - digit_side) / digit_side
+
+        affine_p1 = scale.repeat(P, B, K, 1, 1).to(z_where.device)
+        affine_p2 = z_where.unsqueeze(-1) * translate
         affine_p2[:, :, :, 0, :] = -affine_p2[:, :, :, 0, :]
         grid = F.affine_grid(
             torch.cat((affine_p1, affine_p2), -1).view(P*B*K, 2, 3),
@@ -72,17 +73,18 @@ class DigitsDecoder(BaseModel):
             align_corners=True
         )
 
-        digits = digits.view(P*B*K, self._digit_side, self._digit_side)
+        digits = digits.view(P*B*K, digit_side, digit_side)
         frames = F.grid_sample(digits.unsqueeze(1), grid, mode='nearest',
                                align_corners=True).squeeze(1)
         return frames.view(P, B, K, self._x_side, self._x_side)
 
-    def forward(self, what, where, t=0, x=None):
-        P, B, K, _ = where.shape
-        digits = self.decoder(what)
-        frame = torch.clamp(self.blit(digits, where).sum(-3), 0., 1.)
-        likelihood = dist.ContinuousBernoulli(frame).to_event(2)
-        return pyro.sample("X__%d" % t, likelihood, obs=x)
+    @property
+    def density(self):
+        return self._likelihood
+
+    @property
+    def name(self):
+        return "X__%d" % self._t
 
 class DigitDecoder(BaseModel):
     def __init__(self, digit_side=28, hidden_dim=400, z_dim=10):
