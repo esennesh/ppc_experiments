@@ -74,22 +74,17 @@ class DigitsDecoder(DensityKernel):
     def density(self):
         return self._likelihood
 
-class DigitDecoder(BaseModel):
-    def __init__(self, digit_side=28, hidden_dim=400, z_dim=10):
-        super().__init__()
-        self._digit_side = 28
-        self.decoder = nn.Sequential(
-            nn.Linear(z_dim, hidden_dim // 2), nn.ReLU(),
-            nn.Linear(hidden_dim // 2, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, digit_side ** 2), nn.Sigmoid()
-        )
-
-    def forward(self, what, x=None):
+class DigitDecoder(DensityKernel):
+    def __init__(self, what, decoder=None, digit_side=28):
         P, B, _, _ = what.shape
-        estimate = self.decoder(what).view(P, B, 1, self._digit_side,
-                                           self._digit_side)
-        likelihood = dist.ContinuousBernoulli(estimate).to_event(3)
-        return pyro.sample("X", likelihood, obs=x)
+        estimate = decoder(what).view(P, B, 1, digit_side, digit_side)
+        self._likelihood = dist.ContinuousBernoulli(estimate).to_event(3)
+
+        super().__init__()
+
+    @property
+    def density(self):
+        return self._likelihood
 
 class BouncingMnistAsvi(BaseModel):
     def __init__(self, digit_side=28, hidden_dim=400, num_digits=3, T=10,
