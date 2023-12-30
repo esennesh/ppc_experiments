@@ -74,10 +74,6 @@ class DigitsDecoder(DensityKernel):
     def density(self):
         return self._likelihood
 
-    @property
-    def name(self):
-        return "X__%d" % self._t
-
 class DigitDecoder(BaseModel):
     def __init__(self, digit_side=28, hidden_dim=400, z_dim=10):
         super().__init__()
