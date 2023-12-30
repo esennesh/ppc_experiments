@@ -30,17 +30,22 @@ class DigitPositions(DensityKernel):
     def name(self):
         return "z_where__%d" % self._t
 
-class DigitFeatures(BaseModel):
-    def __init__(self, z_what_dim=10):
-        super().__init__()
-        self.register_buffer('loc', torch.zeros(z_what_dim))
-        self.register_buffer('scale', torch.ones(z_what_dim))
+class DigitFeatures(DensityKernel):
+    def __init__(self, batch_shape=(), K=3, z_what_dim=10):
+        self._prior = dist.Normal(torch.zeros(z_what_dim),
+                                  torch.ones(z_what_dim))
+        self._prior = self._prior.expand([*batch_shape, K, z_what_dim])
+        self._prior = self._prior.to_event(2)
 
-    def forward(self, K=3, batch_shape=()):
-        prior = dist.Normal(self.loc, self.scale).expand([
-            *batch_shape, K, *self.loc.shape
-        ])
-        return pyro.sample("z_what", prior.to_event(2))
+        super().__init__()
+
+    @property
+    def density(self):
+        return self._prior
+
+    @property
+    def name(self):
+        return "z_what"
 
 class DigitsDecoder(BaseModel):
     def __init__(self, digit_side=28, hidden_dim=400, x_side=96, z_what_dim=10):
