@@ -159,12 +159,17 @@ class MnistPpc(BaseModel):
     def __init__(self, digit_side=28, hidden_dim=400, temperature=1e-3,
                  z_dim=10):
         super().__init__()
-        self.digit_features = DigitFeatures(z_dim)
-        self.decoder = DigitDecoder(digit_side, hidden_dim, z_dim)
+        self._digit_side = digit_side
+        self._z_dim = z_dim
+        self.decoder = nn.Sequential(
+            nn.Linear(z_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, digit_side ** 2), nn.Sigmoid()
+        )
 
         self.graph = PpcGraph(temperature)
-        self.graph.add_node("z_what", [], self.digit_features)
-        self.graph.add_node("X", ["z_what"], self.decoder)
+        self.graph.add_node("z_what", [], DigitFeatures)
+        self.graph.add_node("X", ["z_what"], DigitDecoder)
 
     def forward(self, xs=None):
         if xs is not None:
@@ -172,10 +177,16 @@ class MnistPpc(BaseModel):
         else:
             B = 1
 
-        self.graph.set_kwargs("z_what", K=1, batch_shape=(B,))
-        z = self.digit_features(K=1, batch_shape=(B,))
-        self.graph.set_kwargs("X", x=xs)
-        return self.decoder(z, x=xs)
+        self.graph.set_kwargs("z_what", batch_shape=(B,), device=xs.device, K=1,
+                              z_what_dim=self._z_dim)
+        pz = DigitFeatures(batch_shape=(B,), device=xs.device, K=1,
+                           z_what_dim=self._z_dim)
+        z = pyro.sample("z_what", pz.to_event(2))
+
+        self.graph.set_kwargs("X", decoder=self.decoder,
+                              digit_side=self._digit_side)
+        px = DigitDecoder(z, decoder=self.decoder, digit_side=self._digit_side)
+        return pyro.sample("X", px.to_event(3), obs=xs)
 
 class BouncingMnistPpc(BaseModel):
     def __init__(self, digit_side=28, hidden_dim=400, num_digits=3, T=10,
