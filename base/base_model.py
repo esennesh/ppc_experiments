@@ -34,18 +34,31 @@ class BaseModel(pyro.nn.PyroModule):
         checkpoint = torch.load(resume_path)
         self.load_state_dict(checkpoint['state_dict'])
 
-class DensityKernel(BaseModel, pyro.distributions.Distribution):
+class DensityKernel(pyro.distributions.TorchDistribution):
     def __init__(self):
         self.has_enumerate_support = self.has_enumerate_support
         self.has_rsample = self.density.has_rsample
+        if self.density.has_rsample:
+            self.rsample = self.density.rsample
+
+    @property
+    def batch_shape(self):
+        return self.density.batch_shape
 
     @property
     @abstractmethod
     def density(self):
         raise NotImplementedError
 
+    @property
+    def event_shape(self):
+        return self.density.event_shape
+
     def log_prob(self, x, *args, **kwargs):
         return self.density.log_prob(x, *args, **kwargs)
+
+    def __repr__(self):
+        return self.density.__repr__()
 
     def sample(self, *args, **kwargs):
         return self.density.sample(*args, **kwargs)
