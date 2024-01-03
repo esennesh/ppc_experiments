@@ -44,7 +44,7 @@ class DigitsDecoder(DensityKernel):
 
         digits = decoder(what)
         frame = torch.clamp(self.blit(digits, where).sum(-3), 0., 1.)
-        self._likelihood = dist.ContinuousBernoulli(frame).to_event(2)
+        self._likelihood = dist.ContinuousBernoulli(frame)
 
         super().__init__()
 
