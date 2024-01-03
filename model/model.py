@@ -18,7 +18,6 @@ class DigitPositions(DensityKernel):
         self._t = t
         self._prior = dist.Normal(loc, scale).expand([*batch_shape, K,
                                                       loc.shape])
-        self._prior = self._prior.to_event(2)
 
         super().__init__()
 
