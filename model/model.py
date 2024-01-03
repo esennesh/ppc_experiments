@@ -26,11 +26,10 @@ class DigitPositions(DensityKernel):
         return self._prior
 
 class DigitFeatures(DensityKernel):
-    def __init__(self, batch_shape=(), K=3, z_what_dim=10):
-        self._prior = dist.Normal(torch.zeros(z_what_dim),
-                                  torch.ones(z_what_dim))
+    def __init__(self, batch_shape=(), device='cpu', K=3, z_what_dim=10):
+        self._prior = dist.Normal(torch.zeros(z_what_dim).to(device=device),
+                                  torch.ones(z_what_dim).to(device=device))
         self._prior = self._prior.expand([*batch_shape, K, z_what_dim])
-        self._prior = self._prior.to_event(2)
 
         super().__init__()
 
