@@ -76,7 +76,7 @@ class DigitDecoder(DensityKernel):
     def __init__(self, what, decoder=None, digit_side=28):
         P, B, _, _ = what.shape
         estimate = decoder(what).view(P, B, 1, digit_side, digit_side)
-        self._likelihood = dist.ContinuousBernoulli(estimate).to_event(3)
+        self._likelihood = dist.ContinuousBernoulli(estimate)
 
         super().__init__()
 
