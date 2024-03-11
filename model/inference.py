@@ -84,6 +84,14 @@ class ParticleDict(nn.ParameterDict):
             self[key].scatter_(self._batch_dim, indices.expand(val.shape),
                                val.to(self[key].device))
 
+def _finite_difference(*args, f=None):
+    diff = []
+    for i, arg in enumerate(args):
+        assert torch.is_tensor(arg)
+        # arg = arg + 1
+        diff.append(f(*args[:i], arg + 1, *args[i+1:]))
+    return torch.stack(diff, dim=-1) - f(*args).unsqueeze(dim=-1)
+
 class PpcGraphicalModel(GraphicalModel):
     def _complete_conditional_error(self, site):
         error = self._site_errors(site)[0]
@@ -102,7 +110,7 @@ class PpcGraphicalModel(GraphicalModel):
             error = torch.func.grad(logprobsum,
                                     argnums=tuple(range(1+len(pvals))))
         else:
-            raise NotImplementedError("Discrete prediction errors not implemented!")
+            error = functools.partial(_finite_difference, f=logprobsum)
         return error(value, *pvals)
 
     def _site_errors(self, site):
