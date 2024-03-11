@@ -216,6 +216,7 @@ class PpcTrainer(BaseTrainer):
             tq.compute_log_prob()
             tp.compute_log_prob()
             log_weight = utils.log_joint(tp) - utils.log_joint(tq)
+            log_joint = utils.log_joint(tp)
 
         loss = (-log_weight).mean()
         if train:
@@ -224,7 +225,7 @@ class PpcTrainer(BaseTrainer):
             pyro.infer.util.zero_grads(pyro.get_param_store().values())
 
         self._save_particles(batch_indices, train)
-        return loss, log_weight.detach()
+        return loss, log_weight.detach(), log_joint.detach()
 
     def _train_epoch(self, epoch):
         """
@@ -238,12 +239,15 @@ class PpcTrainer(BaseTrainer):
         self.train_metrics.reset()
         for batch_idx, (data, target, batch_indices) in enumerate(self.data_loader):
             data = data.to(self.device)
-            loss, log_weight = self._ppc_step(batch_indices, data)
+            loss, log_weight, log_joint = self._ppc_step(batch_indices, data)
 
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
             self.train_metrics.update('loss', loss.item())
             for met in self.metric_ftns:
-                self.train_metrics.update(met.__name__, met(log_weight))
+                if met.__name__ == 'log_joint':
+                    self.train_metrics.update(met.__name__, met(log_joint))
+                else:
+                    self.train_metrics.update(met.__name__, met(log_weight))
 
             if batch_idx % self.log_step == 0:
                 self.logger.debug('Train Epoch: {} {} Loss: {:.6f}'.format(
@@ -280,12 +284,15 @@ class PpcTrainer(BaseTrainer):
         with torch.no_grad():
             for batch_idx, (data, target, batch_indices) in enumerate(self.valid_data_loader):
                 data = data.to(self.device)
-                loss, log_weight = self._ppc_step(batch_indices, data, False)
+                loss, log_weight, log_joint = self._ppc_step(batch_indices, data, False)
 
                 self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')
                 self.valid_metrics.update('loss', loss.item())
                 for met in self.metric_ftns:
-                    self.valid_metrics.update(met.__name__, met(log_weight))
+                    if met.__name__ == 'log_joint':
+                        self.valid_metrics.update(met.__name__, met(log_joint))
+                    else:
+                        self.valid_metrics.update(met.__name__, met(log_weight))
 
                 if data.shape[1] == 1:
                     self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
@@ -339,7 +346,7 @@ class PpcTrainer(BaseTrainer):
         """
         resume_path = str(resume_path)
         self.logger.info("Loading checkpoint: {} ...".format(resume_path))
-        checkpoint = torch.load(resume_path)
+        checkpoint = torch.load(resume_path,map_location=torch.device('cpu'))
         self.start_epoch = checkpoint['epoch'] + 1
         self.mnt_best = checkpoint['monitor_best']
 
