@@ -145,3 +145,32 @@ class BouncingMnistPpc(BaseModel):
             clamps['X__%d' % t] = xs[:, t] if xs is not None else None
         recons = self.graph.guide(**clamps)
         return torch.stack(recons, dim=2)
+
+class GmmPpc(BaseModel):
+    def __init__(self, num_clusters=3, dim=2):
+        super().__init__()
+        self._dim = dim
+        self._num_clusters = num_clusters
+
+        self.cluster_precisions = ClusterPrecisions(num_clusters, dim)
+        self.cluster_centers = ClusterCenters(num_clusters, dim)
+        self.assignments = ClusterAssignment(num_clusters)
+        self.likelihood = MixtureLikelihood(dim)
+
+        self.graph = GraphicalModel()
+        self.graph.add_node("tau", [], self.cluster_precisions)
+        self.graph.add_node("mu", ["tau"], self.cluster_centers)
+        self.graph.add_node("Z", [], self.assignments)
+        self.graph.add_node("X", ["mu", "tau", "Z"], self.likelihood)
+
+    def forward(self, xs):
+        B, _  = xs.shape
+        self.assignments.batch_shape = (B,)
+        self.graph.clamp("X", xs)
+        return self.graph.forward(X=xs)
+
+    def guide(self, xs):
+        B, _ = xs.shape
+        self.assignments.batch_shape = (B,)
+        self.graph.clamp("X", xs)
+        return self.graph.guide(batch_shape=(B,), X=xs)
