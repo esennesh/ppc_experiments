@@ -6,7 +6,7 @@ import pyro.nn as pnn
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from base import BaseModel
+from base import BaseModel, PartialMarkovKernel
 from .generative import *
 from .inference import PpcGraphicalModel, asvi, mlp_amortizer
 
@@ -124,8 +124,7 @@ class BouncingMnistPpc(BaseModel):
         self.graph.add_node("z_what", [], self.digit_features)
         for t in range(T):
             if t == 0:
-                where_kernel = lambda **kwargs: self.digit_positions(None,
-                                                                     **kwargs)
+                where_kernel = PartialMarkovKernel(self.digit_positions, None)
                 self.graph.add_node("z_where__0", [], where_kernel)
             else:
                 self.graph.add_node("z_where__%d" % t, ["z_where__%d" % (t-1)],
