@@ -4,7 +4,9 @@
 
     "arch": {
         "type": "BouncingMnistPpc",
-        "args": {}
+        "args": {
+          "temperature": 0.001
+        }
     },
     "data_loader": {
         "type": "BouncingMnistDataLoader",
@@ -44,7 +46,8 @@
         "verbosity": 2,
         "type": "PpcTrainer",
         "args": {
-            "num_particles": 8
+            "num_particles": 8,
+            "num_sweeps": 4
         }
     }
 }
