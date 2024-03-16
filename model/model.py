@@ -111,7 +111,7 @@ class MnistPpc(BaseModel):
 
 class BouncingMnistPpc(BaseModel):
     def __init__(self, digit_side=28, hidden_dim=400, num_digits=3, T=10,
-                 x_side=96, z_what_dim=10, z_where_dim=2):
+                 x_side=96, z_what_dim=10, z_where_dim=2, temperature=1e-3):
         super().__init__()
         self._num_digits = num_digits
         self._num_times = T
@@ -120,7 +120,7 @@ class BouncingMnistPpc(BaseModel):
         self.digit_features = DigitFeatures(num_digits, z_what_dim)
         self.digit_positions = DigitPositions(num_digits, z_where_dim)
 
-        self.graph = GraphicalModel()
+        self.graph = PpcGraphicalModel(temperature)
         self.graph.add_node("z_what", [], self.digit_features)
         for t in range(T):
             if t == 0:
