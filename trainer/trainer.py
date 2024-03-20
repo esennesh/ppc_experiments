@@ -216,7 +216,7 @@ class PpcTrainer(BaseTrainer):
 
         loss = (-log_weight).mean()
         if train:
-            loss.backward()
+            (loss * len(data_loader.dataset)).backward()
             self.optimizer(pyro.get_param_store().values())
             pyro.infer.util.zero_grads(pyro.get_param_store().values())
 
