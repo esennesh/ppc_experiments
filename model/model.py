@@ -98,7 +98,8 @@ class MnistPpc(BaseModel):
             B = 1
         self.prior.batch_shape = self.decoder.batch_shape = (B,)
         self.likelihood.batch_shape = (B,)
-        return self.graph.forward(X=xs)
+        with clamp_graph(self.graph, X=xs) as graph:
+            return graph.forward()
 
     def guide(self, xs=None):
         if xs is not None:
@@ -107,7 +108,8 @@ class MnistPpc(BaseModel):
         else:
             B = 1
         self.digit_features.batch_shape = (B,)
-        return self.graph.guide(X=xs)
+        with clamp_graph(self.graph, X=xs) as graph:
+            return graph.guide()
 
 class BouncingMnistPpc(BaseModel):
     def __init__(self, digit_side=28, hidden_dim=400, num_digits=3, T=10,
