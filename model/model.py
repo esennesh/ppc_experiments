@@ -139,7 +139,7 @@ class BouncingMnistPpc(BaseModel):
         self.digit_features.batch_shape = (B,)
         self.digit_positions.batch_shape = (B,)
         clamps = {"X__%d" % t: xs[:, t] for t in range(T)}
-        with clamp_graph(self.graph, clamps) as graph:
+        with clamp_graph(self.graph, **clamps) as graph:
             recons = graph.forward()
         return torch.stack(recons, dim=2)
 
@@ -148,6 +148,6 @@ class BouncingMnistPpc(BaseModel):
         self.digit_features.batch_shape = (B,)
         self.digit_positions.batch_shape = (B,)
         clamps = {"X__%d" % t: xs[:, t] for t in range(T)}
-        with clamp_graph(self.graph, clamps) as graph:
+        with clamp_graph(self.graph, **clamps) as graph:
             recons = graph.guide()
         return torch.stack(recons, dim=2)
