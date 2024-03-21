@@ -126,7 +126,7 @@ class PpcGraphicalModel(GraphicalModel):
     def guide(self):
         results = ()
         for site, kernel in self.sweep(forward=False):
-            if self.nodes[site]["is_observed"]:
+            if not self.nodes[site]["is_observed"]:
                 posterior = self.get_posterior(site, kernel.event_dim)
                 self.update(site, pyro.sample(site, posterior))
 
