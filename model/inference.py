@@ -123,15 +123,12 @@ class PpcGraphicalModel(GraphicalModel):
 
         return dist.Delta(z_next, log_cc - log_Zcc, event_dim=event_dim)
 
-    def guide(self, **kwargs):
+    def guide(self):
         results = ()
-        for site, kernel in self.sweep(forward=False):
-            obs = kwargs.get(site, None)
-            self.nodes[site]['is_observed'] = obs is not None
+        for site, kernel in self.sweep(forward=False, observations=False):
+            posterior = self.get_posterior(site, kernel.event_dim)
+            self.update(site, pyro.sample(site, posterior))
 
-            if not self.nodes[site]['is_observed']:
-                posterior = self.get_posterior(site, kernel.event_dim)
-                self.update(site, pyro.sample(site, posterior))
             if len(list(self.child_sites(site))) == 0:
                 results = results + (self.nodes[site]['value'],)
         return results[0] if len(results) == 1 else results
