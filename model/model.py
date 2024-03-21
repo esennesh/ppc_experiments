@@ -138,24 +138,16 @@ class BouncingMnistPpc(BaseModel):
         B, T, _, _ = xs.shape if xs is not None else (1, self._num_times, 0, 0)
         self.digit_features.batch_shape = (B,)
         self.digit_positions.batch_shape = (B,)
-        for t in range(T):
-            if xs is not None:
-                self.graph.clamp('X__%d' % t, xs[:, t])
-        clamps = {}
-        for t in range(T):
-            clamps['X__%d' % t] = xs[:, t] if xs is not None else None
-        recons = self.graph.forward(**clamps)
+        clamps = {"X__%d" % t: xs[:, t] for t in range(T)}
+        with clamp_graph(self.graph, clamps) as graph:
+            recons = graph.forward()
         return torch.stack(recons, dim=2)
 
     def guide(self, xs=None):
         B, T, _, _ = xs.shape if xs is not None else (1, self._num_times, 0, 0)
         self.digit_features.batch_shape = (B,)
         self.digit_positions.batch_shape = (B,)
-        for t in range(T):
-            if xs is not None:
-                self.graph.clamp('X__%d' % t, xs[:, t])
-        clamps = {}
-        for t in range(T):
-            clamps['X__%d' % t] = xs[:, t] if xs is not None else None
-        recons = self.graph.guide(**clamps)
+        clamps = {"X__%d" % t: xs[:, t] for t in range(T)}
+        with clamp_graph(self.graph, clamps) as graph:
+            recons = graph.guide()
         return torch.stack(recons, dim=2)
