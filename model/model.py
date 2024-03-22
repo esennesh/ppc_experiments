@@ -107,7 +107,8 @@ class MnistPpc(BaseModel):
             self.graph.clamp("X", xs)
         else:
             B = 1
-        self.digit_features.batch_shape = (B,)
+        self.prior.batch_shape = self.decoder.batch_shape = (B,)
+        self.likelihood.batch_shape = (B,)
         with clamp_graph(self.graph, X=xs) as graph:
             return graph.guide()
 
