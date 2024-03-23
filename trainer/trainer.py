@@ -214,11 +214,12 @@ class PpcTrainer(BaseTrainer):
                 trace, log_weight = utils.importance(self.model.forward,
                                                      self.model.guide, data)
 
-        loss = (-log_weight).mean()
+        loss = (-log_weight).mean(dim=0).sum(dim=1)
         if train:
             (loss * len(data_loader.dataset)).backward()
             self.optimizer(pyro.get_param_store().values())
             pyro.infer.util.zero_grads(pyro.get_param_store().values())
+        loss = loss / len(batch_indices)
 
         self._save_particles(batch_indices, train)
         return loss, log_weight.detach()
