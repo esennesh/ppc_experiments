@@ -214,7 +214,7 @@ class PpcTrainer(BaseTrainer):
                 trace, log_weight = utils.importance(self.model.forward,
                                                      self.model.guide, data)
 
-        loss = (-log_weight).mean(dim=0).sum(dim=1)
+        loss = (-log_weight).sum(dim=-1).mean(dim=0)
         if train:
             (loss * len(data_loader.dataset)).backward()
             self.optimizer(pyro.get_param_store().values())
